@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: mwamba-pos-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /var/data/mwamba_pos.db
+    # A persistent disk is required for SQLite durability. For a zero-cost
+    # production deployment, replace SQLite with PostgreSQL before launch.
+    disk:
+      name: mwamba-pos-data
+      mountPath: /var/data
+      sizeGB: 1
