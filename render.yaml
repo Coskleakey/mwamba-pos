@@ -7,9 +7,6 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        # All allowed frontend origins — add any new Vercel preview URLs here.
-        # Vercel preview URLs follow the pattern:
-        #   https://mwamba-pos-git-<branch>-coskleakeys-projects.vercel.app
         value: https://mwamba-pos.vercel.app,https://mwamba-pos-git-main-coskleakeys-projects.vercel.app,https://mwamba-95nnfy17a-coskleakeys-projects.vercel.app
       - key: SECRET_KEY
         generateValue: true

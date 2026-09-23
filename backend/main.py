@@ -26,6 +26,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-this-development-secret")
 #   https://mwamba-pos-git-main-coskleakeys-projects.vercel.app
 #   https://mwamba-95nnfy17a-coskleakeys-projects.vercel.app
 #   ... any other <hash>-coskleakeys-projects.vercel.app preview URL
+# Backend is hosted at: https://mwamba-pos.onrender.com
 VERCEL_ORIGIN_REGEX = r"https://mwamba-pos[a-z0-9\-]*\.vercel\.app|https://[a-z0-9\-]+-coskleakeys-projects\.vercel\.app"
 
 app = FastAPI(title="Mwamba POS API", version="1.0.0")
