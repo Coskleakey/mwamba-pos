@@ -26,3 +26,10 @@ frontend/.vite/
 Thumbs.db
 .neon
 .env.local
+
+# Kiro IDE workspace files — not part of the project
+.agents/
+neon.ts
+skills-lock.json
+/package.json
+/package-lock.json
