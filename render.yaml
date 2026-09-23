@@ -7,7 +7,10 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        sync: false
+        # Comma-separated list of allowed frontend origins.
+        # Add your Vercel deployment URL here. Wildcards are NOT supported —
+        # list every origin explicitly. Preview deploy URLs can be added too.
+        value: https://mwamba-pos.vercel.app,https://mwamba-pos-git-main-coskleakeys-projects.vercel.app
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_PATH

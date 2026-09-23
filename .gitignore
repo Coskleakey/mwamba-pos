@@ -24,3 +24,5 @@ frontend/.vite/
 .idea/
 .DS_Store
 Thumbs.db
+.neon
+.env.local
