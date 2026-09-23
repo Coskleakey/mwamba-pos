@@ -343,6 +343,15 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/debug-cors")
+def debug_cors() -> dict:
+    """Returns the live CORS config — use this to confirm the deploy is current."""
+    return {
+        "allow_origins": ALLOWED_ORIGINS,
+        "allow_origin_regex": VERCEL_ORIGIN_REGEX,
+    }
+
+
 @app.post("/api/auth/login")
 def login(payload: LoginRequest) -> dict[str, str]:
     init_db()
