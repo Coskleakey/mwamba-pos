@@ -7,16 +7,14 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        # Comma-separated list of allowed frontend origins.
-        # Add your Vercel deployment URL here. Wildcards are NOT supported —
-        # list every origin explicitly. Preview deploy URLs can be added too.
-        value: https://mwamba-pos.vercel.app,https://mwamba-pos-git-main-coskleakeys-projects.vercel.app
+        # All allowed frontend origins — add any new Vercel preview URLs here.
+        # Vercel preview URLs follow the pattern:
+        #   https://mwamba-pos-git-<branch>-coskleakeys-projects.vercel.app
+        value: https://mwamba-pos.vercel.app,https://mwamba-pos-git-main-coskleakeys-projects.vercel.app,https://mwamba-95nnfy17a-coskleakeys-projects.vercel.app
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_PATH
         value: /var/data/mwamba_pos.db
-    # A persistent disk is required for SQLite durability. For a zero-cost
-    # production deployment, replace SQLite with PostgreSQL before launch.
     disk:
       name: mwamba-pos-data
       mountPath: /var/data

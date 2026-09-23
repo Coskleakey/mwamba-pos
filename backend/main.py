@@ -16,13 +16,23 @@ from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", BASE_DIR / "mwamba_pos.db"))
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-development-secret")
+
+# allow_origin_regex covers every Vercel preview + production URL for this
+# project without needing to enumerate them one by one.
+# Pattern matches:
+#   https://mwamba-pos.vercel.app
+#   https://mwamba-pos-git-main-coskleakeys-projects.vercel.app
+#   https://mwamba-95nnfy17a-coskleakeys-projects.vercel.app
+#   ... any other <hash>-coskleakeys-projects.vercel.app preview URL
+VERCEL_ORIGIN_REGEX = r"https://mwamba-pos[a-z0-9\-]*\.vercel\.app|https://[a-z0-9\-]+-coskleakeys-projects\.vercel\.app"
 
 app = FastAPI(title="Mwamba POS API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=VERCEL_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
