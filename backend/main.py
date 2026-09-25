@@ -128,6 +128,11 @@ class ProductCreate(BaseModel):
     reorder_level: int = Field(ge=0, default=5)
 
 
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
 class ProductUpdate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     category: str = Field(min_length=1, max_length=60)
@@ -389,6 +394,25 @@ def login(payload: LoginRequest) -> dict[str, str]:
 @app.get("/api/auth/me")
 def me(user: dict = Depends(current_user)) -> dict:
     return user
+
+
+@app.post("/api/auth/password")
+def change_password(payload: PasswordChange, user: dict = Depends(current_user)) -> dict[str, str]:
+    """Change the signed-in user's own password after verifying the current one."""
+    init_db()
+    with closing(get_connection()) as connection:
+        record = connection.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if not record:
+            raise HTTPException(404, "Account not found")
+        salt, expected = record["password_hash"].split("$", 1)
+        supplied = password_hash(payload.current_password, salt).split("$", 1)[1]
+        if not hmac.compare_digest(supplied, expected):
+            raise HTTPException(400, "Current password is incorrect")
+        if payload.current_password == payload.new_password:
+            raise HTTPException(400, "New password must be different from the current password")
+        connection.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash(payload.new_password), user["id"]))
+        connection.commit()
+    return {"status": "ok", "message": "Password updated"}
 
 
 @app.get("/api/staff")
