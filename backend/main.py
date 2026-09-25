@@ -118,6 +118,26 @@ class StaffStatusUpdate(BaseModel):
     active: bool
 
 
+class ProductCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    category: str = Field(min_length=1, max_length=60)
+    sku: str = Field(min_length=1, max_length=40)
+    price: float = Field(ge=0)
+    buying_price: float = Field(ge=0, default=0)
+    stock_quantity: int = Field(ge=0, default=0)
+    reorder_level: int = Field(ge=0, default=5)
+
+
+class ProductUpdate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    category: str = Field(min_length=1, max_length=60)
+    sku: str = Field(min_length=1, max_length=40)
+    price: float = Field(ge=0)
+    buying_price: float = Field(ge=0, default=0)
+    stock_quantity: int = Field(ge=0, default=0)
+    reorder_level: int = Field(ge=0, default=5)
+
+
 def get_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
@@ -432,6 +452,46 @@ def products(search: str = Query(""), _: dict = Depends(current_user)) -> list[d
         rows = connection.execute("SELECT id, name, category, sku, price, buying_price, stock_quantity, reorder_level, 0 is_gas, NULL gas_id FROM products WHERE active = 1 AND (name LIKE ? OR category LIKE ? OR sku LIKE ?)", (f"%{search}%", f"%{search}%", f"%{search}%")).fetchall()
         gas_rows = connection.execute("SELECT id, brand || ' ' || size_kg || 'kg Gas' name, 'LPG Gas' category, 'GAS-' || id sku, refill_price price, refill_price buying_price, full_quantity stock_quantity, reorder_level, 1 is_gas, id gas_id FROM gas_inventory WHERE brand LIKE ? OR CAST(size_kg AS TEXT) LIKE ?", (f"%{search}%", f"%{search}%")).fetchall()
         return [row_dict(row) for row in rows] + [row_dict(row) for row in gas_rows]
+
+
+@app.post("/api/products")
+def create_product(payload: ProductCreate, _: dict = Depends(owner_only)) -> dict:
+    init_db()
+    with closing(get_connection()) as connection:
+        try:
+            cursor = connection.execute(
+                "INSERT INTO products (name, category, sku, price, buying_price, stock_quantity, reorder_level) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (payload.name.strip(), payload.category.strip(), payload.sku.strip().upper(),
+                 payload.price, payload.buying_price, payload.stock_quantity, payload.reorder_level),
+            )
+            connection.commit()
+            return row_dict(connection.execute(
+                "SELECT id, name, category, sku, price, buying_price, stock_quantity, reorder_level FROM products WHERE id = ?",
+                (cursor.lastrowid,),
+            ).fetchone())
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "A product with that SKU already exists")
+
+
+@app.patch("/api/products/{product_id}")
+def update_product(product_id: int, payload: ProductUpdate, _: dict = Depends(owner_only)) -> dict:
+    init_db()
+    with closing(get_connection()) as connection:
+        if not connection.execute("SELECT id FROM products WHERE id = ? AND active = 1", (product_id,)).fetchone():
+            raise HTTPException(404, "Product not found")
+        try:
+            connection.execute(
+                "UPDATE products SET name = ?, category = ?, sku = ?, price = ?, buying_price = ?, stock_quantity = ?, reorder_level = ? WHERE id = ?",
+                (payload.name.strip(), payload.category.strip(), payload.sku.strip().upper(),
+                 payload.price, payload.buying_price, payload.stock_quantity, payload.reorder_level, product_id),
+            )
+            connection.commit()
+            return row_dict(connection.execute(
+                "SELECT id, name, category, sku, price, buying_price, stock_quantity, reorder_level FROM products WHERE id = ?",
+                (product_id,),
+            ).fetchone())
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "A product with that SKU already exists")
 
 
 @app.get("/api/gas")

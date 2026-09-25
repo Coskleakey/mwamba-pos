@@ -394,7 +394,12 @@ function App() {
             />
           )}
           {view === "Inventory" && (
-            <InventoryView products={products} loading={loading} />
+            <InventoryView
+              products={products}
+              loading={loading}
+              role={role}
+              onLoadData={loadData}
+            />
           )}
           {view === "Gas Cylinders" && (
             <GasView
@@ -1179,10 +1184,17 @@ function SalesView({
 function InventoryView({
   products,
   loading,
+  role,
+  onLoadData,
 }: {
   products: Product[];
   loading: boolean;
+  role: string;
+  onLoadData: () => void;
 }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+
   return (
     <article className="panel page-panel">
       <div className="filter-row">
@@ -1190,9 +1202,14 @@ function InventoryView({
           <h2>Products &amp; inventory</h2>
           <p className="muted">Electronics and shop stock by quantity</p>
         </div>
-        <button className="button button-primary">
-          <Plus size={17} /> Add product
-        </button>
+        {role === "admin" && (
+          <button
+            className="button button-primary"
+            onClick={() => { setEditProduct(null); setShowModal(true); }}
+          >
+            <Plus size={17} /> Add product
+          </button>
+        )}
       </div>
       <div className="product-grid">
         {loading ? (
@@ -1224,10 +1241,27 @@ function InventoryView({
                   <b>{money(product.price)}</b>
                   <small>{product.stock_quantity} units</small>
                 </div>
+                {role === "admin" && (
+                  <button
+                    className="link-button"
+                    style={{ marginTop: 10, fontSize: 10 }}
+                    onClick={() => { setEditProduct(product); setShowModal(true); }}
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
             ))
         )}
       </div>
+
+      {showModal && (
+        <ProductModal
+          product={editProduct}
+          onClose={() => { setShowModal(false); setEditProduct(null); }}
+          onDone={() => { setShowModal(false); setEditProduct(null); onLoadData(); }}
+        />
+      )}
     </article>
   );
 }
@@ -2288,6 +2322,169 @@ function ModalFrame({
         {children}
       </section>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Product Modal — add or edit a physical inventory product
+// ---------------------------------------------------------------------------
+function ProductModal({
+  product,
+  onClose,
+  onDone,
+}: {
+  product: Product | null;   // null = add mode, non-null = edit mode
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const isEdit = product !== null;
+  const [form, setForm] = useState({
+    name: product?.name ?? "",
+    category: product?.category ?? "",
+    sku: "",   // SKU pre-fill handled below
+    price: product?.price != null ? String(product.price) : "",
+    buying_price: "",
+    stock_quantity: product?.stock_quantity != null ? String(product.stock_quantity) : "0",
+    reorder_level: product?.reorder_level != null ? String(product.reorder_level) : "5",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // For edit mode we need the SKU — it's not on the Product type so fetch it
+  useEffect(() => {
+    if (!isEdit) return;
+    apiFetch(`/api/products`)
+      .then((r) => r.json())
+      .then((list: Array<{ id: number; sku: string; buying_price: number }>) => {
+        const match = list.find((p) => p.id === product!.id);
+        if (match) {
+          setForm((f) => ({
+            ...f,
+            sku: match.sku ?? "",
+            buying_price: String(match.buying_price ?? 0),
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const body = {
+      name: form.name.trim(),
+      category: form.category.trim(),
+      sku: form.sku.trim().toUpperCase(),
+      price: Number(form.price),
+      buying_price: Number(form.buying_price) || 0,
+      stock_quantity: Number(form.stock_quantity),
+      reorder_level: Number(form.reorder_level),
+    };
+    const response = await apiFetch(
+      isEdit ? `/api/products/${product!.id}` : "/api/products",
+      { method: isEdit ? "PATCH" : "POST", body: JSON.stringify(body) },
+    );
+    setSaving(false);
+    if (!response.ok) {
+      setError((await response.json()).detail ?? "Could not save product.");
+      return;
+    }
+    onDone();
+  };
+
+  return (
+    <ModalFrame
+      title={isEdit ? "Edit Product" : "Add Product"}
+      subtitle={isEdit ? `Editing ${product!.name}` : "Add a new item to your shop inventory."}
+      onClose={onClose}
+    >
+      <form className="modal-form" onSubmit={submit}>
+        <label>
+          Product name
+          <input
+            required
+            value={form.name}
+            placeholder="e.g., LED Bulb 12W"
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </label>
+        <div className="form-row">
+          <label>
+            Category
+            <input
+              required
+              value={form.category}
+              placeholder="e.g., Electronics"
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            />
+          </label>
+          <label>
+            SKU
+            <input
+              required
+              value={form.sku}
+              placeholder="e.g., BLB-001"
+              onChange={(e) => setForm({ ...form, sku: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            Selling price
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
+          </label>
+          <label>
+            Buying / cost price
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.buying_price}
+              placeholder="0"
+              onChange={(e) => setForm({ ...form, buying_price: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            Stock quantity
+            <input
+              required
+              type="number"
+              min="0"
+              value={form.stock_quantity}
+              onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+            />
+          </label>
+          <label>
+            Reorder level
+            <input
+              required
+              type="number"
+              min="0"
+              value={form.reorder_level}
+              onChange={(e) => setForm({ ...form, reorder_level: e.target.value })}
+            />
+          </label>
+        </div>
+        {error && <div className="credit-alert">{error}</div>}
+        <button
+          className="button button-primary full-button"
+          type="submit"
+          disabled={saving}
+        >
+          {saving ? "Saving…" : isEdit ? "Save changes" : <><Plus size={16} /> Add product</>}
+        </button>
+      </form>
+    </ModalFrame>
   );
 }
 
