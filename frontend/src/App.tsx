@@ -37,7 +37,8 @@ type View =
   | "Madeni"
   | "Payments"
   | "Staff"
-  | "Reports";
+  | "Reports"
+  | "Settings";
 
 type Product = {
   id: number;
@@ -215,7 +216,7 @@ function App() {
 
   // Redirect cashier away from restricted views
   useEffect(() => {
-    if (role === "cashier" && (view === "Overview" || view === "Staff")) {
+    if (role === "cashier" && (view === "Overview" || view === "Staff" || view === "Settings")) {
       setView("Sales");
     }
   }, [role, view]);
@@ -228,7 +229,7 @@ function App() {
 
   const chooseView = (nextView: View) => {
     // Block cashier from accessing restricted views directly
-    if (role === "cashier" && (nextView === "Overview" || nextView === "Staff")) {
+    if (role === "cashier" && (nextView === "Overview" || nextView === "Staff" || nextView === "Settings")) {
       return;
     }
     setView(nextView);
@@ -274,6 +275,8 @@ function App() {
       ? "Every customer payment, including partial debt repayments."
       : view === "Staff"
       ? "Manage cashier accounts and access."
+      : view === "Settings"
+      ? "Your shop profile, security, and account preferences."
       : "Business analytics and performance summary.";
 
 
@@ -314,8 +317,11 @@ function App() {
         </nav>
         <div className="sidebar-bottom">
           {role === "admin" && (
-            <button className="nav-item">
-              <Settings size={18} />
+            <button
+              className={`nav-item ${view === "Settings" ? "active" : ""}`}
+              onClick={() => chooseView("Settings")}
+            >
+              <Settings size={18} strokeWidth={view === "Settings" ? 2.4 : 1.8} />
               <span>Settings</span>
             </button>
           )}
@@ -434,6 +440,13 @@ function App() {
               dashboard={dashboard}
               loading={loading}
               role={role}
+            />
+          )}
+          {view === "Settings" && role === "admin" && (
+            <SettingsView
+              userName={userName}
+              initialRole={role}
+              onNotify={setToast}
             />
           )}
         </div>
@@ -2192,6 +2205,162 @@ function StaffView({
         ))}
       </div>
     </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Settings View (admin only) — shop profile and own password change
+// ---------------------------------------------------------------------------
+function SettingsView({
+  userName,
+  initialRole,
+  onNotify,
+}: {
+  userName: string;
+  initialRole: string;
+  onNotify: (message: string) => void;
+}) {
+  const [profile, setProfile] = useState<{
+    full_name: string;
+    email: string;
+    role: string;
+  } | null>(null);
+  const [form, setForm] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch("/api/auth/me")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setProfile(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    if (form.new_password !== form.confirm_password) {
+      setError("The new password and its confirmation do not match.");
+      return;
+    }
+    setSaving(true);
+    const response = await apiFetch("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: form.current_password,
+        new_password: form.new_password,
+      }),
+    });
+    setSaving(false);
+    if (!response.ok) {
+      const detail = (await response.json()).detail;
+      setError(
+        typeof detail === "string" ? detail : "Could not update your password.",
+      );
+      return;
+    }
+    setForm({ current_password: "", new_password: "", confirm_password: "" });
+    onNotify("Password updated. Use the new one next time you sign in.");
+  };
+
+  return (
+    <div className="settings-grid">
+      <article className="panel page-panel">
+        <div className="filter-row">
+          <div>
+            <h2>Shop profile</h2>
+            <p className="muted">The account that owns this workspace.</p>
+          </div>
+          <span className="status paid">
+            {initialRole === "admin" ? "OWNER" : "STAFF"}
+          </span>
+        </div>
+        <div className="staff-list">
+          <div className="staff-row">
+            <div className="customer-avatar">
+              {(profile?.full_name ?? userName).slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <strong>{profile?.full_name ?? userName}</strong>
+              <span>
+                {profile?.email ?? "Loading account details..."} ·{" "}
+                {profile?.role ?? initialRole}
+              </span>
+            </div>
+          </div>
+        </div>
+        <p className="muted settings-note">
+          Business name, phone number, and receipt details are not editable yet.
+          Store them on the backend before wiring them into receipts.
+        </p>
+      </article>
+
+      <article className="panel page-panel">
+        <div className="filter-row">
+          <div>
+            <h2>Change password</h2>
+            <p className="muted">Minimum 8 characters.</p>
+          </div>
+        </div>
+        <form className="settings-form" onSubmit={submit}>
+          <label>
+            Current password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={form.current_password}
+              onChange={(e) =>
+                setForm({ ...form, current_password: e.target.value })
+              }
+              required
+            />
+          </label>
+          <label>
+            New password
+            <input
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              value={form.new_password}
+              onChange={(e) =>
+                setForm({ ...form, new_password: e.target.value })
+              }
+              required
+            />
+          </label>
+          <label>
+            Confirm new password
+            <input
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              value={form.confirm_password}
+              onChange={(e) =>
+                setForm({ ...form, confirm_password: e.target.value })
+              }
+              required
+            />
+          </label>
+          <button
+            className="button button-primary full-button"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Updating..." : "Update password"}
+          </button>
+          {error && <small className="form-error">{error}</small>}
+        </form>
+        <p className="muted settings-note">
+          Devices already signed in stay signed in until their session expires.
+        </p>
+      </article>
+    </div>
   );
 }
 

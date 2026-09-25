@@ -16,6 +16,7 @@ A focused point-of-sale and stock management MVP for a Kenyan retail shop sellin
 - Seed data for customers, gas, electronics, and demo user
 - CORS and environment-based API URL configuration
 - Owner login with signed sessions and protected business routes
+- Owner-only **Settings** view: shop profile plus password change for any signed-in account
 - Owner-only sales staff accounts with activate/deactivate controls
 - Payment history showing customer, amount, method, reference, and recording staff member
 - Sale and payment audit attribution for remote accountability
@@ -41,7 +42,7 @@ backend/
 - Email: `admin@example.com`
 - Password: `ChangeMe123!`
 
-This is for development demonstration only. Add a password-change flow before production use.
+This is for development demonstration only. Change the seeded owner password from **Settings** before production use.
 
 The owner signs in first and uses **Staff** in the sidebar to create sales accounts. Staff can record sales, gas exchanges, and partial debt payments, but cannot create or deactivate accounts. Every sale and payment stores the authenticated staff member who recorded it.
 
@@ -77,6 +78,7 @@ Useful API routes:
 - `POST /api/gas-exchanges`
 - `POST /api/gas-sales`
 - `POST /api/payments`
+- `POST /api/auth/password`
 
 ### Frontend
 
@@ -122,7 +124,7 @@ Root `.env.example` and `frontend/.env.example` are included in the repository. 
 ## Intentional future work
 
 - PostgreSQL adapter and migrations for hosted persistence
-- Password rotation and forgotten-password recovery
+- Forgotten-password recovery (self-service rotation is implemented; an owner cannot yet reset a staff password)
 - Receipt detail endpoint and browser print view
 - Product/customer create and edit screens
 - Inventory adjustments and movement history UI
