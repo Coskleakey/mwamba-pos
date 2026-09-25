@@ -30,31 +30,15 @@ button, input, select { font: inherit; } button { cursor: pointer; } h1, h2, str
 @media (max-width: 900px) {
   .staff-form { grid-template-columns: 1fr 1fr; }
   .staff-form .button { grid-column: span 2; }
-  .sidebar { width: 220px; flex: 0 0 220px; }
 }
 
 /* ── 768px: portrait tablets / large phones ─────────────────────────────── */
 @media (max-width: 768px) {
-  /* Sidebar becomes an off-canvas drawer */
-  .sidebar {
-    position: fixed; z-index: 8;
-    top: 0; bottom: 0; left: -268px;
-    width: 268px; flex: 0 0 268px;
-    transition: left .28s cubic-bezier(.4,0,.2,1);
-    box-shadow: 12px 0 40px rgba(10,36,42,.22);
-    overflow-y: auto;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  }
-  .sidebar-open { left: 0; }
-  .mobile-scrim {
-    position: fixed; z-index: 7; inset: 0;
-    display: block; border: 0;
-    background: rgba(16,43,52,.38);
-  }
+  /* The off-canvas sidebar drawer is defined at the bottom of this file, after
+     the base `.sidebar` layout rules, so it can actually win the cascade. */
 
   /* Topbar */
   .topbar { height: 60px; padding: 0 16px; }
-  .mobile-menu { display: grid; }
   .breadcrumb span:first-child, .breadcrumb > svg { display: none; }
 
   /* Page layout */
@@ -369,4 +353,74 @@ button, input, select { font: inherit; } button { cursor: pointer; } h1, h2, str
 .settings-form input { width: 100%; height: 40px; padding: 0 11px; border: 1px solid #dfe8e5; border-radius: 6px; outline: 0; color: #33494f; background: #fbfdfc; font-size: 12px; }
 .settings-form input:focus { border-color: #66bca7; box-shadow: 0 0 0 3px rgba(102,188,167,.12); }
 .settings-note { margin-top: 18px; line-height: 1.6; }
+
+/* ═══ MOBILE DRAWER + PHONE OVERRIDES — keep this section last in the file ═══
+   `.app-shell`, `.sidebar`, `.nav-list`, `.main-content`, `.payment-methods`,
+   `.debt-list-row` and `.settings-grid` are (re)declared higher up this file
+   *after* the responsive media queries, so without these rules they win the
+   cascade on small screens and keep the sidebar docked beside the content. */
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px 38px; }
+.sidebar-head .brand-lockup { flex: 1; min-width: 0; padding: 0; }
+.sidebar-close { display: none; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; color: #cfe3e1; background: rgba(255,255,255,.06); transition: .2s ease; }
+.sidebar-close:hover { color: #fff; background: rgba(255,255,255,.16); }
+.sidebar-close:focus-visible { outline: 2px solid #c7f06b; outline-offset: 2px; }
+.mobile-scrim { display: none; }
+
+/* ── ≤900px: sidebar becomes an off-canvas drawer (phones + portrait tablets) */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed; z-index: 8;
+    top: 0; bottom: 0; left: -294px;
+    width: 294px; max-width: 86vw;
+    height: 100vh; height: 100dvh;
+    padding: 22px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    box-shadow: 12px 0 40px rgba(10,36,42,.22);
+    /* `visibility` also keeps the closed drawer out of the tab order; it is
+       transitioned so the slide in/out still animates. */
+    visibility: hidden;
+    transition: left .28s cubic-bezier(.4,0,.2,1), visibility .28s;
+  }
+  .sidebar-open { left: 0; visibility: visible; }
+  /* The drawer scrolls as a whole instead of the nav list scrolling inside it */
+  .nav-list { overflow: visible; }
+  .sidebar-head { padding: 0 0 24px; }
+  .sidebar-close { display: grid; }
+  .mobile-menu { display: grid; }
+  .mobile-scrim {
+    position: fixed; z-index: 7; inset: 0;
+    display: block; border: 0; padding: 0;
+    background: rgba(16,43,52,.42);
+    -webkit-tap-highlight-color: transparent;
+    animation: mobile-scrim-in .2s ease;
+  }
+  /* Shop profile / password panels stack instead of squeezing two columns */
+  .settings-grid { grid-template-columns: 1fr; }
+}
+
+@keyframes mobile-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── ≤560px: payment tiles wrap, debt ledger collapses to name + balance ──── */
+@media (max-width: 560px) {
+  .payment-methods { grid-template-columns: 1fr 1fr; }
+  .payment-methods button:last-child { grid-column: span 2; }
+  .debt-ledger-header, .debt-list-row { min-width: 0; }
+  .debt-list-row { grid-template-columns: 32px 1fr auto; gap: 10px; }
+  .debt-ledger-header { grid-template-columns: 32px 1fr auto; gap: 10px; }
+  .debt-ledger-header span:nth-child(3), .debt-ledger-header span:nth-child(4), .debt-ledger-header span:nth-child(5), .debt-list-row .debt-total, .debt-list-row .debt-paid { display: none; }
+  .debt-list-row .debt-balance { font-size: 12px; }
+}
+
+/* ── ≤400px: single-column payment tiles ─────────────────────────────────── */
+@media (max-width: 400px) {
+  .payment-methods { grid-template-columns: 1fr; }
+  .payment-methods button:last-child { grid-column: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+  .mobile-scrim { animation: none; }
+}
 

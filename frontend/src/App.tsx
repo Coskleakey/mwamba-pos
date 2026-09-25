@@ -29,6 +29,9 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// Kept in sync with the `max-width: 900px` sidebar drawer rules in index.css
+const DRAWER_BREAKPOINT = 900;
+
 type View =
   | "Overview"
   | "Sales"
@@ -227,6 +230,24 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  // Dismiss the mobile drawer with Escape, or when the viewport grows past the
+  // drawer breakpoint (otherwise the scrim would stay mounted on desktop).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    const closeOnResize = () => {
+      if (window.innerWidth > DRAWER_BREAKPOINT) setMobileOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnResize);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnResize);
+    };
+  }, [mobileOpen]);
+
   const chooseView = (nextView: View) => {
     // Block cashier from accessing restricted views directly
     if (role === "cashier" && (nextView === "Overview" || nextView === "Staff" || nextView === "Settings")) {
@@ -283,15 +304,28 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
-        <div className="brand-lockup">
-          <div className="brand-mark">
-            <Sparkles size={18} />
+      <aside
+        className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}
+        id="app-sidebar"
+      >
+        <div className="sidebar-head">
+          <div className="brand-lockup">
+            <div className="brand-mark">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <strong>mwamba</strong>
+              <span>business desk</span>
+            </div>
           </div>
-          <div>
-            <strong>mwamba</strong>
-            <span>business desk</span>
-          </div>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
+          </button>
         </div>
         <div className="workspace-label">WORKSPACE</div>
         <nav className="nav-list" aria-label="Main navigation">
@@ -343,9 +377,12 @@ function App() {
       <main className="main-content">
         <header className="topbar">
           <button
+            type="button"
             className="mobile-menu"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Open navigation"
+            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileOpen}
+            aria-controls="app-sidebar"
           >
             <Menu />
           </button>
@@ -2379,22 +2416,31 @@ function LoginScreen({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setError("");
     setSubmitting(true);
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-      setError((await response.json()).detail ?? "Invalid email or password.");
-    } else {
-      const data = await response.json();
-      localStorage.setItem("mwamba_token", data.token);
-      localStorage.setItem("mwamba_user_name", data.user_name);
-      localStorage.setItem("mwamba_role", data.role);
-      onLogin(data.user_name, data.role);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        setError(detail?.detail ?? "Invalid email or password.");
+      } else {
+        const data = await response.json();
+        localStorage.setItem("mwamba_token", data.token);
+        localStorage.setItem("mwamba_user_name", data.user_name);
+        localStorage.setItem("mwamba_role", data.role);
+        onLogin(data.user_name, data.role);
+      }
+    } catch {
+      // API unreachable: backend not started, offline, or VITE_API_URL wrong
+      setError("Unable to reach the API. Check that the backend is running.");
+    } finally {
+      // Always release the button, otherwise the form stays on "Signing in…"
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
